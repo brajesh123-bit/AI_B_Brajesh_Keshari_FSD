@@ -1,24 +1,114 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Simple Lottery Guess</title>
 </head>
-<body style="font-family: 'Arial', sans-serif; margin: 0; padding: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center;">
-    <div style="background: white; padding: 40px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); max-width: 500px; text-align: center;">
-        <h1 style="color: #333; margin-top: 0;">Hello World</h1>
-        <p style="color: #666; line-height: 1.6;">a simple webpage with inline CSS styling. The design is clean and modern with a gradient background and centered card layout.</p>
-        
-        <button style="background-color: #667eea; color: white; padding: 12px 30px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin-top: 20px; transition: background-color 0.3s;">
-            Click Me
-        </button>
-        
-        <div style="display: flex; gap: 15px; margin-top: 30px; justify-content: center;">
-            <a href="#" style="color: #667eea; text-decoration: none; font-weight: bold;">Link 1</a>
-            <a href="#" style="color: #667eea; text-decoration: none; font-weight: bold;">Link 2</a>
-            <a href="#" style="color: #667eea; text-decoration: none; font-weight: bold;">Link 3</a>
+<body style="margin:0;font-family:Arial,Helvetica,sans-serif;background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;">
+    <div style="background:#fff;padding:28px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.15);width:min(520px,94%);text-align:center;">
+        <h1 style="margin:0 0 8px 0;color:#223;">Lottery Guess</h1>
+        <p style="margin:0 0 18px 0;color:#556;">Pick a mode, guess the secret, and try your luck!</p>
+
+        <div style="display:flex;gap:12px;justify-content:center;margin-bottom:18px;">
+            <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:#334;"><input type="radio" name="mode" value="number" checked style="transform:scale(1.1);"> Number</label>
+            <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:#334;"><input type="radio" name="mode" value="word" style="transform:scale(1.1);"> Word</label>
         </div>
+
+        <div id="inputRow" style="display:flex;gap:8px;justify-content:center;align-items:center;">
+            <input id="guessInput" placeholder="Enter number 1-20" inputmode="numeric" style="padding:10px 12px;border-radius:8px;border:1px solid #ddd;width:220px;outline:none;"> 
+            <button id="guessBtn" style="background:#4facfe;color:#fff;border:none;padding:10px 14px;border-radius:8px;cursor:pointer;">Guess</button>
+        </div>
+
+        <div id="msg" style="margin-top:16px;color:#444;min-height:26px;font-weight:600;"></div>
+
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:18px;">
+            <button id="revealBtn" style="background:#f6f6f6;border:1px solid #e3e3e3;padding:8px 12px;border-radius:8px;cursor:pointer;">Reveal</button>
+            <button id="resetBtn" style="background:#fff6da;border:1px solid #f3e1a8;padding:8px 12px;border-radius:8px;cursor:pointer;">Play Again</button>
+        </div>
+
+        <div style="margin-top:14px;color:#666;font-size:14px;">Attempts: <span id="attempts">0</span></div>
     </div>
+
+    <script>
+        (function(){
+            const words = ["jackpot","winner","prize","lucky","fortune"];
+            let secret = null;
+            let mode = 'number';
+            let attempts = 0;
+
+            const elems = {
+                guessInput: document.getElementById('guessInput'),
+                guessBtn: document.getElementById('guessBtn'),
+                revealBtn: document.getElementById('revealBtn'),
+                resetBtn: document.getElementById('resetBtn'),
+                msg: document.getElementById('msg'),
+                attempts: document.getElementById('attempts')
+            };
+
+            function newSecret(){
+                attempts = 0;
+                elems.attempts.textContent = attempts;
+                if(mode === 'number'){
+                    secret = Math.floor(Math.random()*20) + 1; // 1..20
+                    elems.guessInput.value = '';
+                    elems.guessInput.placeholder = 'Enter number 1-20';
+                    elems.guessInput.inputMode = 'numeric';
+                } else {
+                    secret = words[Math.floor(Math.random()*words.length)];
+                    elems.guessInput.value = '';
+                    elems.guessInput.placeholder = 'Guess the secret word';
+                    elems.guessInput.inputMode = 'text';
+                }
+                elems.msg.textContent = '';
+            }
+
+            function setMode(m){
+                mode = m;
+                newSecret();
+            }
+
+            function checkGuess(){
+                const raw = elems.guessInput.value.trim();
+                if(!raw){ elems.msg.textContent = 'Please enter a guess.'; return; }
+                attempts += 1;
+                elems.attempts.textContent = attempts;
+
+                if(mode === 'number'){
+                    const n = Number(raw);
+                    if(!Number.isInteger(n) || n < 1 || n > 20){ elems.msg.textContent = 'Enter an integer from 1 to 20.'; return; }
+                    if(n === secret){ elems.msg.textContent = '🎉 Correct! You won!'; } 
+                    else if(n < secret) { elems.msg.textContent = 'Too low — try higher.'; }
+                    else { elems.msg.textContent = 'Too high — try lower.'; }
+                } else {
+                    if(raw.toLowerCase() === String(secret).toLowerCase()){
+                        elems.msg.textContent = '🎉 Correct word! You won!';
+                    } else {
+                        elems.msg.textContent = 'Nope — try again.';
+                    }
+                }
+            }
+
+            function reveal(){
+                elems.msg.textContent = 'Secret: ' + secret;
+            }
+
+            function reset(){
+                newSecret();
+            }
+
+            // wire events
+            document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener('change', e => setMode(e.target.value)));
+            elems.guessBtn.addEventListener('click', checkGuess);
+            elems.revealBtn.addEventListener('click', reveal);
+            elems.resetBtn.addEventListener('click', reset);
+
+            // allow Enter key
+            elems.guessInput.addEventListener('keydown', function(e){ if(e.key === 'Enter') checkGuess(); });
+
+            // init
+            newSecret();
+        })();
+    </script>
 </body>
 </html>
