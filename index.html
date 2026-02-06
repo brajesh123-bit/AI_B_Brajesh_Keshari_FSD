@@ -4,11 +4,28 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Simple Lottery Guess</title>
+    <style>
+        @keyframes pulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.05); } }
+        @keyframes slideIn { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes bounce { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-10px); } }
+        @keyframes shake { 0%,100% { transform:translateX(0); } 25% { transform:translateX(-5px); } 75% { transform:translateX(5px); } }
+        @keyframes glow { 0%,100% { box-shadow:0 0 0 0 rgba(79,172,254,0.7); } 50% { box-shadow:0 0 0 10px rgba(79,172,254,0); } }
+        .animate-pulse { animation: pulse 0.5s ease-in-out; }
+        .animate-bounce { animation: bounce 0.6s ease-in-out; }
+        .animate-shake { animation: shake 0.3s ease-in-out; }
+        .animate-glow { animation: glow 1s ease-in-out; }
+    </style>
 </head>
 <body style="margin:0;font-family:Arial,Helvetica,sans-serif;background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;">
     <div style="background:#fff;padding:28px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.15);width:min(520px,94%);text-align:center;">
         <h1 style="margin:0 0 8px 0;color:#223;">Lottery Guess</h1>
         <p style="margin:0 0 18px 0;color:#556;">Pick a mode, guess the secret, and try your luck!</p>
+        
+        <div style="display:flex;gap:20px;justify-content:center;margin-bottom:18px;font-weight:bold;color:#334;flex-wrap:wrap;">
+            <div>Wins: <span id="wins" style="color:#4facfe;">0</span></div>
+            <div>Losses: <span id="losses" style="color:#ff6b6b;">0</span></div>
+            <div>Score: <span id="score" style="color:#ffd93d;">0</span></div>
+        </div>
 
         <div style="display:flex;gap:12px;justify-content:center;margin-bottom:18px;">
             <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:#334;"><input type="radio" name="mode" value="number" checked style="transform:scale(1.1);"> Number</label>
@@ -20,11 +37,12 @@
             <button id="guessBtn" style="background:#4facfe;color:#fff;border:none;padding:10px 14px;border-radius:8px;cursor:pointer;">Guess</button>
         </div>
 
-        <div id="msg" style="margin-top:16px;color:#444;min-height:26px;font-weight:600;"></div>
+        <div id="msg" style="margin-top:16px;color:#444;min-height:26px;font-weight:600;font-size:18px;"></div>
 
-        <div style="display:flex;gap:10px;justify-content:center;margin-top:18px;">
-            <button id="revealBtn" style="background:#f6f6f6;border:1px solid #e3e3e3;padding:8px 12px;border-radius:8px;cursor:pointer;">Reveal</button>
-            <button id="resetBtn" style="background:#fff6da;border:1px solid #f3e1a8;padding:8px 12px;border-radius:8px;cursor:pointer;">Play Again</button>
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap;">
+            <button id="revealBtn" style="background:#f6f6f6;border:1px solid #e3e3e3;padding:8px 12px;border-radius:8px;cursor:pointer;transition:all 0.2s;">Reveal</button>
+            <button id="resetBtn" style="background:#fff6da;border:1px solid #f3e1a8;padding:8px 12px;border-radius:8px;cursor:pointer;transition:all 0.2s;">Play Again</button>
+            <button id="clearScoreBtn" style="background:#f0f0f0;border:1px solid #ddd;padding:8px 12px;border-radius:8px;cursor:pointer;transition:all 0.2s;">Clear Score</button>
         </div>
 
         <div style="margin-top:14px;color:#666;font-size:14px;">Attempts: <span id="attempts">0</span></div>
@@ -36,21 +54,74 @@
             let secret = null;
             let mode = 'number';
             let attempts = 0;
+            let wins = localStorage.getItem('lottery_wins') ? parseInt(localStorage.getItem('lottery_wins')) : 0;
+            let losses = localStorage.getItem('lottery_losses') ? parseInt(localStorage.getItem('lottery_losses')) : 0;
+            let score = localStorage.getItem('lottery_score') ? parseInt(localStorage.getItem('lottery_score')) : 0;
+            let gameWon = false;
 
             const elems = {
                 guessInput: document.getElementById('guessInput'),
                 guessBtn: document.getElementById('guessBtn'),
                 revealBtn: document.getElementById('revealBtn'),
                 resetBtn: document.getElementById('resetBtn'),
+                clearScoreBtn: document.getElementById('clearScoreBtn'),
                 msg: document.getElementById('msg'),
-                attempts: document.getElementById('attempts')
+                attempts: document.getElementById('attempts'),
+                wins: document.getElementById('wins'),
+                losses: document.getElementById('losses'),
+                scoreEl: document.getElementById('score')
             };
+
+            function playSound(type){
+                const audioCtx = new(window.AudioContext || window.webkitAudioContext)();
+                const oscNode = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                oscNode.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                if(type === 'win'){
+                    oscNode.frequency.setValueAtTime(800, audioCtx.currentTime);
+                    oscNode.frequency.setValueAtTime(1200, audioCtx.currentTime + 0.1);
+                    gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gainNode.gain.setValueAtTime(0, audioCtx.currentTime + 0.2);
+                    oscNode.start(audioCtx.currentTime);
+                    oscNode.stop(audioCtx.currentTime + 0.2);
+                } else if(type === 'wrong'){
+                    oscNode.frequency.setValueAtTime(300, audioCtx.currentTime);
+                    oscNode.frequency.setValueAtTime(200, audioCtx.currentTime + 0.1);
+                    gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gainNode.gain.setValueAtTime(0, audioCtx.currentTime + 0.15);
+                    oscNode.start(audioCtx.currentTime);
+                    oscNode.stop(audioCtx.currentTime + 0.15);
+                } else if(type === 'click'){
+                    oscNode.frequency.setValueAtTime(600, audioCtx.currentTime);
+                    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gainNode.gain.setValueAtTime(0, audioCtx.currentTime + 0.08);
+                    oscNode.start(audioCtx.currentTime);
+                    oscNode.stop(audioCtx.currentTime + 0.08);
+                }
+            }
+
+            function updateScore(){
+                elems.wins.textContent = wins;
+                elems.losses.textContent = losses;
+                elems.scoreEl.textContent = score;
+                localStorage.setItem('lottery_wins', wins);
+                localStorage.setItem('lottery_losses', losses);
+                localStorage.setItem('lottery_score', score);
+            }
+
+            function animate(el, className){
+                el.classList.add(className);
+                setTimeout(() => el.classList.remove(className), 600);
+            }
 
             function newSecret(){
                 attempts = 0;
+                gameWon = false;
                 elems.attempts.textContent = attempts;
                 if(mode === 'number'){
-                    secret = Math.floor(Math.random()*20) + 1; // 1..20
+                    secret = Math.floor(Math.random()*20) + 1;
                     elems.guessInput.value = '';
                     elems.guessInput.placeholder = 'Enter number 1-20';
                     elems.guessInput.inputMode = 'numeric';
@@ -61,40 +132,77 @@
                     elems.guessInput.inputMode = 'text';
                 }
                 elems.msg.textContent = '';
+                animate(elems.guessInput, 'animate-pulse');
             }
 
             function setMode(m){
                 mode = m;
                 newSecret();
+                playSound('click');
             }
 
             function checkGuess(){
+                if(gameWon) return;
                 const raw = elems.guessInput.value.trim();
-                if(!raw){ elems.msg.textContent = 'Please enter a guess.'; return; }
+                if(!raw){ elems.msg.textContent = 'Please enter a guess.'; animate(elems.msg, 'animate-shake'); return; }
                 attempts += 1;
                 elems.attempts.textContent = attempts;
 
                 if(mode === 'number'){
                     const n = Number(raw);
-                    if(!Number.isInteger(n) || n < 1 || n > 20){ elems.msg.textContent = 'Enter an integer from 1 to 20.'; return; }
-                    if(n === secret){ elems.msg.textContent = '🎉 Correct! You won!'; } 
-                    else if(n < secret) { elems.msg.textContent = 'Too low — try higher.'; }
-                    else { elems.msg.textContent = 'Too high — try lower.'; }
+                    if(!Number.isInteger(n) || n < 1 || n > 20){ elems.msg.textContent = 'Enter an integer from 1 to 20.'; animate(elems.msg, 'animate-shake'); return; }
+                    if(n === secret){ 
+                        gameWon = true;
+                        const points = Math.max(100 - (attempts * 10), 10);
+                        wins++; score += points;
+                        elems.msg.textContent = '🎉 Correct! You won! +' + points + ' points';
+                        playSound('win');
+                        animate(elems.msg, 'animate-bounce');
+                        animate(elems.guessBtn, 'animate-glow');
+                        updateScore();
+                    } else if(n < secret) { 
+                        elems.msg.textContent = 'Too low — try higher.'; 
+                        playSound('wrong');
+                        animate(elems.msg, 'animate-shake');
+                    } else { 
+                        elems.msg.textContent = 'Too high — try lower.'; 
+                        playSound('wrong');
+                        animate(elems.msg, 'animate-shake');
+                    }
                 } else {
                     if(raw.toLowerCase() === String(secret).toLowerCase()){
-                        elems.msg.textContent = '🎉 Correct word! You won!';
+                        gameWon = true;
+                        const points = Math.max(100 - (attempts * 10), 10);
+                        wins++; score += points;
+                        elems.msg.textContent = '🎉 Correct word! You won! +' + points + ' points';
+                        playSound('win');
+                        animate(elems.msg, 'animate-bounce');
+                        animate(elems.guessBtn, 'animate-glow');
+                        updateScore();
                     } else {
                         elems.msg.textContent = 'Nope — try again.';
+                        playSound('wrong');
+                        animate(elems.msg, 'animate-shake');
                     }
                 }
             }
 
             function reveal(){
                 elems.msg.textContent = 'Secret: ' + secret;
+                if(!gameWon){ losses++; updateScore(); }
+                playSound('click');
             }
 
             function reset(){
                 newSecret();
+            }
+
+            function clearScore(){
+                if(confirm('Clear all scores?')){
+                    wins = losses = score = 0;
+                    updateScore();
+                    playSound('click');
+                }
             }
 
             // wire events
@@ -102,11 +210,13 @@
             elems.guessBtn.addEventListener('click', checkGuess);
             elems.revealBtn.addEventListener('click', reveal);
             elems.resetBtn.addEventListener('click', reset);
+            elems.clearScoreBtn.addEventListener('click', clearScore);
 
             // allow Enter key
             elems.guessInput.addEventListener('keydown', function(e){ if(e.key === 'Enter') checkGuess(); });
 
             // init
+            updateScore();
             newSecret();
         })();
     </script>
